@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Badge from '../../components/ui/Badge.jsx'
 import Button from '../../components/ui/Button.jsx'
@@ -7,7 +7,10 @@ import EmptyState from '../../components/ui/EmptyState.jsx'
 import Input from '../../components/ui/Input.jsx'
 import SectionTitle from '../../components/ui/SectionTitle.jsx'
 import { ORDER_STATUS_LABELS, ORDER_STATUSES } from '../../features/orders/orders.mock.js'
-import { useOrdersStore } from '../../features/orders/orders.store.js'
+import {
+  getOrders,
+  updateOrderStatus,
+} from '../../services/orderService.js'
 
 function getStatusVariant(status) {
   if (status === 'served') return 'success'
@@ -20,23 +23,36 @@ function getStatusVariant(status) {
 
 export default function AdminOrdersPage() {
   const [query, setQuery] = useState('')
+  const [orders, setOrders] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  const ordersById = useOrdersStore((s) => s.ordersById)
-  const setOrderStatus = useOrdersStore((s) => s.setOrderStatus)
+  useEffect(() => {
+    async function loadOrders() {
+      try {
+        const data = await getOrders()
+        setOrders(data || [])
+      } catch (error) {
+        console.error(error)
+      } finally {
+        setLoading(false)
+      }
+    }
+  
+    loadOrders()
+  }, [])
 
-  const orders = useMemo(() => {
+  const filteredOrders = useMemo(() => {
     const q = String(query || '').toLowerCase().trim()
-    const all = Object.values(ordersById || {})
-      .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
-      .filter(Boolean)
-
-    if (!q) return all
-
-    return all.filter((o) => {
-      const text = `${o.id} ${o.tableId} ${o.status}`.toLowerCase()
+  
+    if (!q) return orders
+  
+    return orders.filter((o) => {
+      const text =
+        `${o.id} ${o.table_number} ${o.status}`.toLowerCase()
+  
       return text.includes(q)
     })
-  }, [ordersById, query])
+  }, [orders, query])
 
   return (
     <div>
@@ -81,24 +97,24 @@ export default function AdminOrdersPage() {
         </div>
 
         <div className="mt-4 space-y-3">
-          {orders.length ? (
-            orders.map((o) => (
+          {filteredOrders.length ? (
+            filteredOrders.map((o) => (
               <Card key={o.id} className="p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-                        #{o.id.slice(-6)}
+                        #{o.id}
                       </p>
                       <Badge variant={getStatusVariant(o.status)}>
                         {ORDER_STATUS_LABELS[o.status] || o.status}
                       </Badge>
                     </div>
                     <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
-                      Table {o.tableId} · {o.items?.length || 0} item types
+                      Table {o.table_number} · Order Total ₹{o.total_price}
                     </p>
                     <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                      {new Date(o.createdAt).toLocaleString()}
+                      {new Date(o.created_at).toLocaleString()}
                     </p>
                   </div>
                   <Link
@@ -115,7 +131,12 @@ export default function AdminOrdersPage() {
                       key={status}
                       size="sm"
                       variant={o.status === status ? 'primary' : 'secondary'}
-                      onClick={() => setOrderStatus(o.id, status)}
+                      onClick={async () => {
+                        await updateOrderStatus(o.id, status)
+                      
+                        const data = await getOrders()
+                        setOrders(data)
+                      }}
                     >
                       {ORDER_STATUS_LABELS[status] || status}
                     </Button>

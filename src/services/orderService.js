@@ -5,11 +5,7 @@ export async function createOrder({
   totalPrice,
   items,
 }){
-console.log("ORDER PAYLOAD:", {
-  table_number: tableNumber,
-  total_price: totalPrice,
-  status: "placed",
-}) 
+
 
   const { data: order, error: orderError } = await supabase
     .from('orders')
@@ -25,7 +21,7 @@ console.log("ORDER PAYLOAD:", {
     .single()
 
     if (orderError) {
-      console.log("ORDER INSERT ERROR:", orderError)
+  
       throw orderError
     }
 
@@ -44,4 +40,27 @@ console.log("ORDER PAYLOAD:", {
   }
 
   return order
+}
+export async function getOrders() {
+  const { data, error } = await supabase
+    .from('orders')
+    .select('*')
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    throw error
+  }
+
+  return data
+}
+
+export async function updateOrderStatus(orderId, status) {
+  const { error } = await supabase
+    .from('orders')
+    .update({ status })
+    .eq('id', orderId)
+
+  if (error) {
+    throw error
+  }
 }
