@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useState ,useMemo} from 'react'
 import { Link } from 'react-router-dom'
 import Badge from '../../components/ui/Badge.jsx'
 import Button from '../../components/ui/Button.jsx'
@@ -6,7 +6,12 @@ import Card from '../../components/ui/Card.jsx'
 import EmptyState from '../../components/ui/EmptyState.jsx'
 import Input from '../../components/ui/Input.jsx'
 import SectionTitle from '../../components/ui/SectionTitle.jsx'
-import { mockCategories, mockMenuItems } from '../../features/menu/menu.mock.js'
+import {
+  getMenuItems,
+  updateMenuItem,
+  deleteMenuItem,
+  createMenuItem,
+} from '../../services/menuService.js'
 
 function formatPriceINR(value) {
   const amount = Number(value || 0)
@@ -15,18 +20,24 @@ function formatPriceINR(value) {
 
 export default function AdminMenuPage() {
   const [query, setQuery] = useState('')
-  const [items, setItems] = useState(() =>
-    (mockMenuItems || []).map((i) => ({ ...i })),
-  )
+  const [items, setItems] = useState([])
+  const [editingId, setEditingId] = useState(null)
+  const [newItem, setNewItem] = useState({
+    name: '',
+    description: '',
+    category: '',
+    price: '',
+  })
 
-  const categoryById = useMemo(() => {
-    const map = {}
-    ;(mockCategories || []).forEach((c) => {
-      map[c.id] = c
-    })
-    return map
+
+  useEffect(() => {
+    async function loadMenu() {
+      const data = await getMenuItems()
+      setItems(data)
+    }
+  
+    loadMenu()
   }, [])
-
   const visible = useMemo(() => {
     const q = String(query || '').toLowerCase().trim()
     if (!q) return items
@@ -37,10 +48,85 @@ export default function AdminMenuPage() {
     })
   }, [items, query])
 
-  function toggleAvailable(itemId) {
+  async function toggleAvailable(itemId) {
+    const item = items.find((i) => i.id === itemId)
+  
+    if (!item) return
+  
+    const updated = await updateMenuItem(itemId, {
+      available: !item.available,
+    })
+  
     setItems((prev) =>
-      prev.map((i) => (i.id === itemId ? { ...i, available: !i.available } : i)),
+      prev.map((i) =>
+        i.id === itemId ? updated : i
+      )
     )
+  }
+  async function handleDelete(itemId) {
+    const confirmed = window.confirm(
+      'Delete this menu item?'
+    )
+  
+    if (!confirmed) return
+  
+    await deleteMenuItem(itemId)
+  
+    setItems((prev) =>
+      prev.filter((item) => item.id !== itemId)
+    )
+  }
+  async function handleAddItem() {
+    if (
+      !newItem.name ||
+      !newItem.description ||
+      !newItem.category ||
+      !newItem.price
+    ) {
+      return
+    }
+  
+    const created = await createMenuItem({
+      name: newItem.name,
+      description: newItem.description,
+      category: newItem.category,
+      price: Number(newItem.price),
+      available: true,
+    })
+  
+    setItems((prev) => [...prev, created])
+  
+    setNewItem({
+      name: '',
+      description: '',
+      category: '',
+      price: '',
+    })
+  }
+  async function handleUpdateItem() {
+    if (!editingId) return
+  
+    const updated = await updateMenuItem(editingId, {
+      name: newItem.name,
+      description: newItem.description,
+      category: newItem.category,
+      price: Number(newItem.price),
+    })
+  
+    setItems((prev) =>
+      prev.map((item) =>
+        item.id === editingId ? updated : item
+      )
+    )
+  
+    setEditingId(null)
+  
+    setNewItem({
+      name: '',
+      description: '',
+      category: '',
+      price: '',
+    })
   }
 
   return (
@@ -84,6 +170,65 @@ export default function AdminMenuPage() {
             onChange={(e) => setQuery(e.target.value)}
           />
         </div>
+                <Card className="p-4 mt-4">
+          <div className="space-y-3">
+
+            <Input
+              placeholder="Name"
+              value={newItem.name}
+              onChange={(e) =>
+                setNewItem({
+                  ...newItem,
+                  name: e.target.value,
+                })
+              }
+            />
+
+          <Input
+            placeholder="Description"
+            value={newItem.description}
+            onChange={(e) =>
+              setNewItem({
+                ...newItem,
+                description: e.target.value,
+              })
+            }
+          />
+
+          <Input
+            placeholder="Category"
+            value={newItem.category}
+            onChange={(e) =>
+              setNewItem({
+                ...newItem,
+                category: e.target.value,
+              })
+            }
+          />
+
+          <Input
+            placeholder="Price"
+            value={newItem.price}
+            onChange={(e) =>
+              setNewItem({
+                ...newItem,
+                price: e.target.value,
+              })
+            }
+                      />
+
+            <Button
+              onClick={
+                editingId
+                  ? handleUpdateItem
+                  : handleAddItem
+              }
+            >
+              {editingId ? 'Update Item' : 'Add Item'}
+            </Button>
+
+                    </div>
+      </Card>
 
         <div className="mt-4 space-y-3">
           {visible.length ? (
@@ -95,7 +240,6 @@ export default function AdminMenuPage() {
                       <p className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-50">
                         {i.name}
                       </p>
-                      {i.isVeg ? <Badge variant="success">Veg</Badge> : null}
                       <Badge variant={i.available ? 'neutral' : 'danger'}>
                         {i.available ? 'Available' : 'Unavailable'}
                       </Badge>
@@ -107,7 +251,7 @@ export default function AdminMenuPage() {
                       {formatPriceINR(i.price)}
                     </p>
                     <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                      Category: {categoryById[i.categoryId]?.name || i.categoryId}
+                      Category: {i.category}
                     </p>
                   </div>
 
@@ -119,6 +263,28 @@ export default function AdminMenuPage() {
                     >
                       {i.available ? 'Disable' : 'Enable'}
                     </Button>
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      onClick={() => handleDelete(i.id)}
+                    >
+                      Delete
+                    </Button>
+                    <Button
+                          size="sm"
+                          onClick={() => {
+                            setEditingId(i.id)
+
+                            setNewItem({
+                              name: i.name,
+                              description: i.description,
+                              category: i.category,
+                              price: i.price,
+                            })
+                          }}
+                        >
+                          Edit
+                        </Button>
                   </div>
                 </div>
               </Card>

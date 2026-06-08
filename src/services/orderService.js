@@ -43,16 +43,24 @@ export async function createOrder({
 }
 export async function getOrders() {
   const { data, error } = await supabase
-    .from('orders')
-    .select('*')
-    .order('created_at', { ascending: false })
-
+  .from('orders')
+  .select(`
+    *,
+    order_items (
+      quantity,
+      menu_items (
+        name
+      )
+    )
+  `)
+  .order('created_at', { ascending: false })
   if (error) {
     throw error
   }
-
+  console.log("ORDERS:", data[0])
   return data
 }
+
 
 export async function updateOrderStatus(orderId, status) {
   const { error } = await supabase

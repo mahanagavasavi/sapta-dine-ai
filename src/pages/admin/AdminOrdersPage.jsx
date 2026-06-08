@@ -11,6 +11,7 @@ import {
   getOrders,
   updateOrderStatus,
 } from '../../services/orderService.js'
+import { supabase } from '../../services/supabaseClient'
 
 function getStatusVariant(status) {
   if (status === 'served') return 'success'
@@ -25,6 +26,8 @@ export default function AdminOrdersPage() {
   const [query, setQuery] = useState('')
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
+
+
 
   useEffect(() => {
     async function loadOrders() {
@@ -41,6 +44,28 @@ export default function AdminOrdersPage() {
     loadOrders()
   }, [])
 
+  useEffect(() => {
+    const channel = supabase
+      .channel('orders-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'orders',
+        },
+        async () => {
+          const data = await getOrders()
+          setOrders(data || [])
+        },
+      )
+      .subscribe()
+  
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [])
+
   const filteredOrders = useMemo(() => {
     const q = String(query || '').toLowerCase().trim()
   
@@ -53,6 +78,14 @@ export default function AdminOrdersPage() {
       return text.includes(q)
     })
   }, [orders, query])
+
+  if (loading) {
+    return (
+      <div className="p-4">
+        Loading orders...
+      </div>
+    )
+  }
 
   return (
     <div>
@@ -113,6 +146,16 @@ export default function AdminOrdersPage() {
                     <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
                       Table {o.table_number} · Order Total ₹{o.total_price}
                     </p>
+                                          <div className="mt-2 space-y-1">
+                        {o.order_items?.map((item, index) => (
+                          <p
+                            key={index}
+                            className="text-xs text-zinc-500 dark:text-zinc-400"
+                          >
+                            • {item.menu_items?.name} × {item.quantity}
+                          </p>
+                        ))}
+                      </div>
                     <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
                       {new Date(o.created_at).toLocaleString()}
                     </p>

@@ -15,6 +15,8 @@ export default function OrderStatusPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (!orderId) return
+  
     async function loadOrder() {
       try {
         const { data, error } = await supabase
@@ -22,21 +24,38 @@ export default function OrderStatusPage() {
           .select('*')
           .eq('id', orderId)
           .single()
-
+    
         if (error) {
           console.error(error)
-          return
+        } else {
+          setOrder(data)
         }
-
-        console.log('ORDER FROM SUPABASE:', data)
-        setOrder(data)
       } finally {
         setLoading(false)
       }
     }
-
-    if (orderId) {
-      loadOrder()
+  
+    loadOrder()
+  
+    const channel = supabase
+      .channel(`order-${orderId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'orders',
+          filter: `id=eq.${orderId}`,
+        },
+        (payload) => {
+          console.log('STATUS UPDATE', payload)
+          setOrder(payload.new)
+        },
+      )
+      .subscribe()
+  
+    return () => {
+      supabase.removeChannel(channel)
     }
   }, [orderId])
 

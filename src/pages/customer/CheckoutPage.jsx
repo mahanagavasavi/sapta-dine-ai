@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import Button from '../../components/ui/Button.jsx'
 import Card from '../../components/ui/Card.jsx'
 import EmptyState from '../../components/ui/EmptyState.jsx'
@@ -16,7 +16,8 @@ function formatPriceINR(value) {
 
 export default function CheckoutPage() {
   const navigate = useNavigate()
-
+  const [searchParams] = useSearchParams()
+  const tableNumber = searchParams.get('table') || '1'
   const itemsById = useCartStore((s) => s.itemsById)
   const clearCart = useCartStore((s) => s.clearCart)
 
@@ -41,16 +42,17 @@ try {
     itemId: l.itemId,
     qty: l.qty,
   }))
-
+  console.log("TABLE NUMBER FROM URL:", tableNumber)
   const order = await createOrder({
-    tableNumber: 1,
+    tableNumber: Number(tableNumber),
     totalPrice: subtotal,
     items,
   })
+  
   console.log("ORDER CREATED:", order)
   clearCart()
 
-  navigate(`/order/${order.id}`)
+  navigate(`/order/${order.id}?table=${tableNumber}`)
 } catch (error) {
   console.error("ORDER ERROR FULL:", JSON.stringify(error, null, 2))
 
@@ -75,7 +77,7 @@ try {
             <h1 className="truncate text-base font-semibold">Checkout</h1>
           </div>
           <Link
-            to="/cart"
+            to={`/cart?table=${tableNumber}`}
             className="text-sm font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-50"
           >
             Back
@@ -127,7 +129,7 @@ try {
             title="Nothing to checkout"
             description="Add items to your cart first."
             action={
-              <Link to="/">
+              <Link to={`/?table=${tableNumber}`}>
                 <Button>Browse menu</Button>
               </Link>
             }

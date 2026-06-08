@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import CategoryChips from '../../components/CategoryChips.jsx'
 import FoodCard from '../../components/FoodCard.jsx'
 import BottomBar from '../../components/ui/BottomBar.jsx'
@@ -19,6 +19,8 @@ export default function MenuPage() {
   const [query, setQuery] = useState('')
   const addItem = useCartStore((s) => s.addItem)
   const totalItems = useCartStore((s) => s.getTotalItems())
+  const [searchParams] = useSearchParams()
+  const tableNumber = searchParams.get('table') || '1'
 
   const categories = useMemo(() => {
     const uniqueCategories = [
@@ -89,7 +91,7 @@ export default function MenuPage() {
             <h1 className="truncate text-base font-semibold">Menu</h1>
           </div>
           <Link
-            to="/cart"
+            to={`/cart?table=${tableNumber}`}
             className="rounded-full border border-zinc-200 px-3 py-1.5 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50 active:bg-zinc-100 dark:border-zinc-800 dark:text-zinc-50 dark:hover:bg-zinc-900"
           >
             Cart {totalItems ? `(${totalItems})` : ''}
@@ -145,7 +147,7 @@ export default function MenuPage() {
                 Review your cart and place the order
               </p>
             </div>
-            <Link to="/cart">
+            <Link to={`/cart?table=${tableNumber}`}>
               <Button size="md">View cart</Button>
             </Link>
           </div>

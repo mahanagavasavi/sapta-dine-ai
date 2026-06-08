@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import CartItemRow from '../../components/CartItemRow.jsx'
 import Button from '../../components/ui/Button.jsx'
 import Card from '../../components/ui/Card.jsx'
@@ -15,6 +15,8 @@ function formatPriceINR(value) {
 }
 
 export default function CartPage() {
+  const [searchParams] = useSearchParams()
+  const tableNumber = searchParams.get('table') || '1'
   const itemsById = useCartStore((s) => s.itemsById)
   const addItem = useCartStore((s) => s.addItem)
   const setQty = useCartStore((s) => s.setQty)
@@ -51,7 +53,7 @@ export default function CartPage() {
             <h1 className="truncate text-base font-semibold">Your cart</h1>
           </div>
           <Link
-            to="/"
+            to={`/?table=${tableNumber}`}
             className="text-sm font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-50"
           >
             Back
@@ -93,7 +95,7 @@ export default function CartPage() {
               title="Your cart is empty"
               description="Add some items from the menu to get started."
               action={
-                <Link to="/">
+                <Link to={`/?table=${tableNumber}`}>
                   <Button variant="primary">Browse menu</Button>
                 </Link>
               }
@@ -117,7 +119,7 @@ export default function CartPage() {
 
         <div className="mt-4">
           {lines.length ? (
-            <Link to="/checkout">
+            <Link to={`/checkout?table=${tableNumber}`}>
               <Button fullWidth>Checkout</Button>
             </Link>
           ) : (
